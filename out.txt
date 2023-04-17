@@ -1,0 +1,5 @@
+1000, Detection error:             19.8%
+1100, Detection error:             19.8%
+1000, Detection error:             27.5%
+1100, Detection error:             27.0%
+1200, Detection error:             27.2%
