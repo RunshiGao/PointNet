@@ -1,2 +1,2 @@
 #!/bin/bash
-printf "flower_pot_%04d\n" $(seq 50 149) > tmp.txt
+printf "night_stand_%04d\n" $(seq 181 200) > tmp.txt

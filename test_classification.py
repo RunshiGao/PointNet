@@ -13,7 +13,7 @@ from tqdm import tqdm
 import sys
 import importlib
 from torch.autograd import Variable
-from calMetric import detection
+import calMetric
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = BASE_DIR
@@ -80,6 +80,9 @@ def test(model, criterion, loader, file, num_class=40, vote_num=1, T=1, noiseMag
         gradient = (gradient.float() - 0.5) * 2
         tempPoints = torch.add(points.data,  -noiseMagnitude, gradient)
         # add temperature T
+        vote_pool = torch.zeros(target.size()[0], num_class)
+        if not args.use_cpu:
+            vote_pool = vote_pool.cuda()
         for _ in range(vote_num):
             norm = None
             B, _, _ = tempPoints.shape
@@ -146,8 +149,8 @@ def main(args):
 
     # in distribution
     shape_names_file = "modelnet10_shape_names.txt"
-    test_file = "modelnet10_test.txt"
-    in_soft_file = "./softmax_scores/confidence_Our_In_" + str(args.T) + "_" + str(args.noiseMagnitude) + "_.txt"
+    test_file = "modelnet10_val_test.txt"
+    in_soft_file = "./softmax_scores/confidence_Our_In_" + str(args.T) + "_" + str(args.noiseMagnitude) + "_v.txt"
     test_dataset = ModelNetDataLoader(root=data_path, args=args, split='test', process_data=False, shape_names_file=shape_names_file, test_file=test_file)
     testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=10)
     '''MODEL LOADING'''
@@ -166,8 +169,9 @@ def main(args):
     log_string('Test Instance Accuracy: %f, Class Accuracy: %f' % (instance_acc, class_acc))
 
     # out distribution
-    out_soft_file = "./softmax_scores/confidence_Our_Out_" + str(args.T) + "_" + str(args.noiseMagnitude) + "_.txt"
-    test_dataset = ModelNetDataLoader(root=data_path, args=args, split='test', process_data=False)
+    test_file = "modelnet10_val_out_test.txt"
+    out_soft_file = "./softmax_scores/confidence_Our_Out_" + str(args.T) + "_" + str(args.noiseMagnitude) + "_v.txt"
+    test_dataset = ModelNetDataLoader(root=data_path, args=args, split='test', process_data=False, test_file=test_file)
     testDataLoader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=10)
     '''MODEL LOADING'''
     num_class = args.num_category
@@ -184,11 +188,10 @@ def main(args):
     instance_acc, class_acc = test(classifier.eval(), model.get_loss(), testDataLoader, T=args.T, noiseMagnitude=args.noiseMagnitude, vote_num=args.num_votes, num_class=num_class, file=out_soft_file)
     log_string('Test Instance Accuracy: %f, Class Accuracy: %f' % (instance_acc, class_acc))
 
-    met_file = "./metrics/met_" + str(args.T) + "_" + str(args.noiseMagnitude) + "_.txt"
-    detection_error = detection(in_soft_file, out_soft_file)
-    met = open(met_file, "w")
-    met.write("Detection error:" + str(detection_error) + "\n")
-    met.close()
+    met_file = "./metrics/met_" + str(args.T) + "_" + str(args.noiseMagnitude) + "_v.txt"
+    met_out = calMetric.metric(in_soft_file, out_soft_file)
+    with open(met_file, "w") as f:
+        f.write(met_out)
 
 if __name__ == '__main__':
     args = parse_args()
